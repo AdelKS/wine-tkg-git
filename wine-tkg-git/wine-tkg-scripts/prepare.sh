@@ -171,6 +171,10 @@ msg2 '       `-+shdNNNNNNNNNNNNNNNdhs+-`'
 msg2 '             `.-:///////:-.`'
 msg2 ''
 
+  # Dump env vars into file, go through the file sourcing process
+  # and then this file will be sourced again so env vars override everything else
+  declare -p -x > "$_where"/current_env
+
   # load default configuration from files
   if [ -e "$_where"/proton_tkg_token ]; then
     source "$_where"/proton_tkg_token
@@ -188,6 +192,10 @@ msg2 ''
   elif [ -e "$_EXT_CONFIG_PATH" ]; then
     source "$_EXT_CONFIG_PATH" && msg2 "External configuration file $_EXT_CONFIG_PATH will be used to override customization.cfg values." && msg2 ""
   fi
+
+  # Restore environment variables
+  source "$_where"/current_env
+  rm "$_where"/current_env
 
   if [ "$_NOINITIALPROMPT" = "true" ] || [ -n "$_LOCAL_PRESET" ] || [ -n "$_DEPSHELPER" ]; then
     msg2 'Initial prompt skipped. Do you remember what it said? 8)'
