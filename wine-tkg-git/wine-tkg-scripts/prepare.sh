@@ -171,6 +171,11 @@ msg2 '       `-+shdNNNNNNNNNNNNNNNdhs+-`'
 msg2 '             `.-:///////:-.`'
 msg2 ''
 
+  # Dump env vars into file, go through the file sourcing process
+  # and then source this file again so env vars override everything else
+  # Note: remove "declare -x" so variables are global and propagate up in calling scripts
+  declare -p -x | sed 's|declare -x||g' > "$_where"/current_env
+
   # load default configuration from files
   if [ -e "$_where"/proton_tkg_token ]; then
     source "$_where"/proton_tkg_token
@@ -188,6 +193,9 @@ msg2 ''
   elif [ -e "$_EXT_CONFIG_PATH" ]; then
     source "$_EXT_CONFIG_PATH" && msg2 "External configuration file $_EXT_CONFIG_PATH will be used to override customization.cfg values." && msg2 ""
   fi
+
+  # Restore environment variables
+  source "$_where"/current_env
 
   if [ "$_NOINITIALPROMPT" = "true" ] || [ -n "$_LOCAL_PRESET" ] || [ -n "$_DEPSHELPER" ]; then
     msg2 'Initial prompt skipped. Do you remember what it said? 8)'
@@ -239,6 +247,10 @@ msg2 ''
       fi
     fi
   fi
+
+  # Restore environment variables again
+  source "$_where"/current_env
+  rm "$_where"/current_env
 
   # makepkg: grab temp profile data in flight - Else the makepkg loop clears and forgets
   if [ -e "$_where"/temp ]; then
