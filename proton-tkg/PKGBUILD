@@ -194,4 +194,6 @@ package() {
   ln -s -f "/tmp" "__pycache__"
 }
 
-trap exit_cleanup EXIT
+if [[ "$_ci_build" != "true" ]]; then
+  trap exit_cleanup EXIT
+fi
