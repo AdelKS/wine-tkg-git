@@ -1,0 +1,108 @@
+name: Wine Builder
+on:
+  workflow_call:
+    inputs:
+      wine_type:
+        description: 'either "proton" or "standard"'
+        required: true
+        type: string
+      _LOCAL_PRESET:
+        description: 'see _LOCAL_PRESET variable in wine-tkg-git/proton-tkg/proton-tkg.cfg'
+        required: true
+        type: string
+      distro:
+        required: true
+        type: string
+
+
+env:
+  CARGO_HOME: ${{ github.workspace }}
+  uninstaller: 'true'
+  autoinstall: 'true'
+  _github_mirrorsrc: 'true'
+  _LOCAL_PRESET: ${{ inputs._LOCAL_PRESET }}
+  build_gstreamer: 'true'
+  lib32_gstreamer: 'true'
+  _ci_build: 'true'
+  _nomakepkg: 'false'
+  _nomakepkg_dep_resolution_distro: ${{ inputs.distro == 'ubuntu' && 'debuntu' || inputs.distro }}
+
+jobs:
+
+  build-wine:
+
+    runs-on: ubuntu-latest
+    container: ${{ inputs.distro != 'ubuntu' && format('{0}:latest', inputs.distro ) || null }}
+
+    # we cannot have `protonified` in `proton` builds
+    if: inputs._LOCAL_PRESET != 'protonified' || inputs.wine_type != 'proton'
+
+    steps:
+      # We need to install git so the checkout is done with it
+      - name: Update mirrorlist
+        if:  inputs.distro == 'archlinux'
+        run: |
+          pacman -Sy --noconfirm reflector
+          reflector --latest 50 --protocol http,https --sort rate --save /etc/pacman.d/mirrorlist
+
+      - name: Install Archlinux initial deps
+        if:  inputs.distro == 'archlinux'
+        run: pacman -Syu --noconfirm git
+
+      - name: Install Fedora initial deps
+        if:  inputs.distro == 'fedora'
+        run: dnf install git patch -y
+
+      - name: Checkout wine-tkg
+        uses: actions/checkout@v4
+
+      # 1. Install deps needed for building and sudo
+      # 2. create a user "user" and give it passwordless sudo
+      #    and necessary permissions
+      #    because makepkg absolutely refuses to run as root
+      - name: Prepare for building [arch]
+        if:  inputs.distro == 'archlinux'
+        run: |
+          echo -e "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
+          pacman -Syu --noconfirm base-devel sudo lib32-jack2
+          source proton-tkg/PKGBUILD && pacman -S --noconfirm --needed --asdeps "${makedepends[@]}" "${depends[@]}"
+          useradd user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown user -R ..
+          chown user -R /tmp
+
+      - name: Prepare for building [ubuntu]
+        if:  inputs.distro == 'ubuntu'
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt update
+          rustup target add i686-unknown-linux-gnu
+
+      - name: Update packages [fedora]
+        if:  inputs.distro == 'fedora'
+        run: sudo dnf -y -q upgrade --refresh
+
+      - name: Compile proton-tkg
+        if: inputs.wine_type == 'proton'
+        run: |
+          cd proton-tkg
+          touch tarplz
+          yes | ./proton-tkg.sh
+
+      - name: Compile wine-tkg
+        if: inputs.wine_type == 'standard'
+        run: |
+          cd wine-tkg-git
+          touch tarplz
+          yes|./non-makepkg-build.sh
+
+      - uses: actions/upload-artifact@v4
+        if: inputs.wine_type == 'proton'
+        with:
+          name: proton-tkg-${{ inputs.distro }}
+          path: proton-tkg/built/*.tar
+
+      - uses: actions/upload-artifact@v4
+        if: inputs.wine_type == 'standard'
+        with:
+          name: wine-tkg-${{ inputs.distro }}
+          path: wine-tkg-git/non-makepkg-builds

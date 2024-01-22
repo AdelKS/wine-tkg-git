@@ -9,7 +9,7 @@
 # ./non-makepkg-build.sh --deps32
 
 ## On a stock Ubuntu 19.04 install, you'll need the following deps as bare minimum to build default wine-tkg (without Faudio/winevulkan):
-# pkg-config (or pkgconf) bison flex schedtool libfreetype6-dev xserver-xorg-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev 
+# pkg-config (or pkgconf) bison flex schedtool libfreetype6-dev xserver-xorg-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 # For 32-bit support : gcc-multilib g++-multilib libfreetype6-dev:i386 xserver-xorg-dev:i386 libgstreamer1.0-dev:i386 libgstreamer-plugins-base1.0-dev:i386
 
 ## For proton-tkg, the 32-bit dependencies above are required as well as the following additions:
@@ -76,6 +76,7 @@ pkgver() {
   # deps
   if [ -n "$_nomakepkg_dep_resolution_distro" ]; then
     source "$_where"/wine-tkg-scripts/deps
+    msg2 "Installing deps"
     if [ "$_nomakepkg_dep_resolution_distro" = "debuntu" ]; then
       if [ "$_ci_build" != "true" ]; then
         warning "PLEASE MAKE SURE TO READ https://github.com/Frogging-Family/wine-tkg-git/issues/773 BEFORE ATTEMPTING TO USE \"debuntu\" dependency resolution"
@@ -93,6 +94,8 @@ pkgver() {
         _archlinux_32
       fi
     fi
+  else
+    msg2 "Dependency installation skipped"
   fi
 
   # this script makes external builds already and we don't want the specific pacman-related stuff to interfere, so enforce _EXTERNAL_INSTALL="false" when not building proton-tkg
