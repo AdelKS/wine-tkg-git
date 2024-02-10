@@ -25,6 +25,7 @@ env:
   lib32_gstreamer: 'true'
   _ci_build: 'true'
   _nomakepkg: 'false'
+  _staging_version: 'v9.1'
   _nomakepkg_dep_resolution_distro: ${{ inputs.distro == 'ubuntu' && 'debuntu' || inputs.distro }}
 
 jobs:
